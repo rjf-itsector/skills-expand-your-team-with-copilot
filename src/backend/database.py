@@ -3,11 +3,34 @@ MongoDB database configuration and setup for Mergington High School API
 """
 
 from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from argon2 import PasswordHasher
+import logging
 
-# Connect to MongoDB
-client = MongoClient('mongodb://localhost:27017/')
-db = client['mergington_high']
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Try to import mongomock early
+try:
+    import mongomock
+except ImportError:
+    mongomock = None
+
+# Try to connect to MongoDB, fall back to mongomock if unavailable
+try:
+    client = MongoClient('mongodb://localhost:27017/', serverSelectionTimeoutMS=2000)
+    # Test connection
+    client.server_info()
+    db = client['mergington_high']
+    logger.info("Connected to MongoDB successfully")
+except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+    # Use mongomock for in-memory database if MongoDB is unavailable
+    if mongomock is None:
+        raise ImportError("MongoDB is unavailable and mongomock is not installed. Please install mongomock or start MongoDB.") from e
+    logger.warning(f"MongoDB connection failed: {e}. Using mongomock for in-memory database.")
+    client = mongomock.MongoClient()
+    db = client['mergington_high']
 activities_collection = db['activities']
 teachers_collection = db['teachers']
 
@@ -119,6 +142,17 @@ initial_activities = {
         },
         "max_participants": 10,
         "participants": ["james@mergington.edu", "benjamin@mergington.edu"]
+    },
+    "Manga Maniacs": {
+        "description": "Dive into epic adventures, heartfelt friendships, and legendary battles! Discover amazing heroes, intense rivalries, and plot twists that'll keep you on the edge of your seat. From shonen action to slice-of-life stories, unleash your inner otaku!",
+        "schedule": "Tuesdays, 5:00 PM - 6:00 PM",
+        "schedule_details": {
+            "days": ["Tuesday"],
+            "start_time": "17:00",
+            "end_time": "18:00"
+        },
+        "max_participants": 25,
+        "participants": []
     },
     "Debate Team": {
         "description": "Develop public speaking and argumentation skills",
