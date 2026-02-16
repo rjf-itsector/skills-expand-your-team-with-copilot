@@ -2,18 +2,33 @@
 MongoDB database configuration and setup for Mergington High School API
 """
 
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from argon2 import PasswordHasher
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Try to import mongomock early
+try:
+    import mongomock
+except ImportError:
+    mongomock = None
 
 # Try to connect to MongoDB, fall back to mongomock if unavailable
 try:
-    from pymongo import MongoClient
     client = MongoClient('mongodb://localhost:27017/', serverSelectionTimeoutMS=2000)
     # Test connection
     client.server_info()
     db = client['mergington_high']
-except Exception:
+    logger.info("Connected to MongoDB successfully")
+except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     # Use mongomock for in-memory database if MongoDB is unavailable
-    import mongomock
+    if mongomock is None:
+        raise ImportError("MongoDB is unavailable and mongomock is not installed. Please install mongomock or start MongoDB.") from e
+    logger.warning(f"MongoDB connection failed: {e}. Using mongomock for in-memory database.")
     client = mongomock.MongoClient()
     db = client['mergington_high']
 activities_collection = db['activities']
